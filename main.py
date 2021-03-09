@@ -17,6 +17,7 @@ class Main(QMainWindow):
     def set_layout(self):
         self.browser.move(100, 100)
         self.browser.resize(100, 300)
+        self.browser.setReadOnly(True)
 
 
 if __name__ == "__main__":
