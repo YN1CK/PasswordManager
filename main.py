@@ -1,5 +1,6 @@
 import sys
 import time
+import pyperclip as pc
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
@@ -24,6 +25,7 @@ class Window(QMainWindow):
         # Choose Database #
         ###################
         self.conf = config.ConfigParser()
+        self.crypt = True
         try:
             open('Databases.conf', 'r', encoding='utf-8').close()
             self.conf.read('Databases.conf', encoding='utf-8')
@@ -58,9 +60,11 @@ class Window(QMainWindow):
         i = 0
         msg = "Enter your Password: "
         while True:
-            if self.conf[self.conf['DEFAULT']['USER']]['PASSWORD'] == self.encrypt(get_text(self, "Validate",
-                                                                                            msg, pw=True)):
+            pw_temp = get_text(self, "Validate", msg, pw=True)
+            if self.conf[self.conf['DEFAULT']['USER']]['PASSWORD'] == self.encrypt(pw_temp):
                 break
+            elif pw_temp == "<error_code>":
+                sys.exit()
             else:
                 i += 1
                 msg = "Wrong Password: " + str(4-i)
@@ -89,6 +93,12 @@ class Window(QMainWindow):
 
         # Show Data - Show Database
         self.lwDatabase = QListWidget(self)
+        self.lNameOut = QLabel(self)
+        self.leNameOut = QLineEdit(self)
+
+        self.lPswOut = QLabel(self)
+        self.lePswOut = QLineEdit(self)
+        self.pbCopyPsw = QPushButton(self)
 
         self.positioning()
 
@@ -97,7 +107,7 @@ class Window(QMainWindow):
         ########################
         self.statusBar().showMessage(f'Database is unlocked, hello {self.user}!')
         self.setGeometry(100, 100, 1000, 550)
-        self.setWindowTitle("Password Manager 0.2")
+        self.setWindowTitle("Password Manager 0.3")
         self.setWindowIcon(QIcon("Logo.png"))
         self.show()
 
@@ -110,6 +120,8 @@ class Window(QMainWindow):
             sys.exit()
         elif q_key_event.key() == Qt.Key_I:
             self.debug_info()
+        elif q_key_event.key() == Qt.Key_C:
+            self.copy_pw()
 
     def new_base(self):
         db = config.ConfigParser()
@@ -168,11 +180,28 @@ class Window(QMainWindow):
             self.open_db.write(e)
         self.open_base()
 
+    def copy_pw(self):
+        pc.copy(self.lePswOut.text())
+
+    def show_data_from_widget(self):  # TODO: Debugging Process is in progress
+        item = self.decrypt(self.lwDatabase.currentItem())
+        print("1")
+        codes = eval(self.open_db['HEAD']['CODES'])
+        print("2")
+        pw_data = codes[item]
+        print("3")
+        self.leNameOut.setText(self.decrypt(pw_data[0]))
+        print("4")
+        self.lePswOut.setText(self.decrypt(pw_data[1]))
+        print("5")
+
     #############
     # Functions #
     #############
 
     def encrypt(self, text: str, seed: int = None):
+        if self.crypt:
+            return text
         if seed is None:
             seed = int(self.conf[self.user]['SEED'])
         txet = ''
@@ -180,9 +209,11 @@ class Window(QMainWindow):
             text = ''
         for i in range(0, len(text)):
             txet += chr(ord(text[i]) + seed + i)
-        return text
+        return txet
 
     def decrypt(self, text: str, seed: int = None):
+        if self.crypt:
+            return text
         if seed is None:
             seed = int(self.conf[self.user]['SEED'])
         txet = ''
@@ -190,7 +221,7 @@ class Window(QMainWindow):
             text = ''
         for i in range(0, len(text)):
             txet += chr(ord(text[i]) - (seed + i))
-        return text
+        return txet
 
     def positioning(self):
         self.lUser.setText(f"<h1>{str(self.conf['DEFAULT']['USER'])}</h1>")
@@ -232,6 +263,21 @@ class Window(QMainWindow):
 
         # Output
         self.lwDatabase.setGeometry(200, 20, 300, 500)
+        self.lwDatabase.itemClicked.connect(self.show_data_from_widget)
+
+        self.lNameOut.setText("Nutzname")
+        self.lNameOut.setGeometry(550, 20, 100, 30)
+        self.leNameOut.setGeometry(550, 50, 140, 30)
+        self.leNameOut.setReadOnly(True)
+
+        self.lPswOut.setText("Passwort")
+        self.lPswOut.setGeometry(550, 90, 100, 30)
+        self.lePswOut.setGeometry(550, 120, 100, 30)
+        self.lePswOut.setReadOnly(True)
+
+        self.pbCopyPsw.setGeometry(655, 120, 35, 30)
+        self.pbCopyPsw.setText("Copy")
+        self.pbCopyPsw.clicked.connect(self.copy_pw)
 
     def debug_info(self):
         print("--------------------------------------------------------------------")

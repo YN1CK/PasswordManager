@@ -10,7 +10,7 @@ def get_item(parent: QMainWindow, items: tuple = ('1', '2', '3'),
     if ok:
         return item
     else:
-        get_item(parent, items, title, message)
+        return None
 
 
 def get_text(parent: QMainWindow, title: str = 'Text Input', message: str = 'Enter your input:', pw: bool = False):
@@ -22,7 +22,7 @@ def get_text(parent: QMainWindow, title: str = 'Text Input', message: str = 'Ent
     if ok:
         return text
     else:
-        get_text(parent, title, message)
+        return "<error_code>"
 
 
 def get_int(parent: QMainWindow, title: str = "integer input dualog", message: str = "enter a number"):
@@ -31,7 +31,7 @@ def get_int(parent: QMainWindow, title: str = "integer input dualog", message: s
     if ok:
         return num
     else:
-        get_int(parent, title, message)
+        return 0
 
 
 def get_bool(parent: QMainWindow, title: str = "Title", message: str = "Message:"):
