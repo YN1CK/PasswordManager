@@ -183,17 +183,12 @@ class Window(QMainWindow):
     def copy_pw(self):
         pc.copy(self.lePswOut.text())
 
-    def show_data_from_widget(self):  # TODO: Debugging Process is in progress
-        item = self.decrypt(self.lwDatabase.currentItem())
-        print("1")
+    def show_data_from_widget(self):
+        item = self.decrypt(self.lwDatabase.currentItem().text())
         codes = eval(self.open_db['HEAD']['CODES'])
-        print("2")
         pw_data = codes[item]
-        print("3")
         self.leNameOut.setText(self.decrypt(pw_data[0]))
-        print("4")
         self.lePswOut.setText(self.decrypt(pw_data[1]))
-        print("5")
 
     #############
     # Functions #
