@@ -1,15 +1,11 @@
 import sys
-import time
-import pyperclip as pc
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
-import configparser as config
 from Dialogs import *
-
-start_time = time.time()
-print("1 - Import of Modules done")
-print(f"Version: {sys.version}")
+import pyperclip as pc
+# from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+# from PyQt5.QtWidgets import *
+import configparser as config
+from cryptography.fernet import Fernet
 
 ################
 # Window-Class #
@@ -25,7 +21,7 @@ class Window(QMainWindow):
         # Choose Database #
         ###################
         self.conf = config.ConfigParser()
-        self.crypt = True
+        self.crypt = False
         try:
             open('Databases.conf', 'r', encoding='utf-8').close()
             self.conf.read('Databases.conf', encoding='utf-8')
@@ -34,12 +30,12 @@ class Window(QMainWindow):
             user = get_text(self, 'First start', 'Hello, you are starting this program\nfor the first time, '
                             'please enter your name.')
             self.user = user
-            seed = get_int(self, 'SEED', 'Please enter a Seed. (recommended 2-20)')
+            seed = Fernet.generate_key()
             pwd = self.encrypt(get_text(self, 'Password', 'Please enter your password', pw=True), seed)
             self.conf['DEFAULT'] = {'USER': user}
             name = get_text(self, 'Database', 'Please enter a Name for your Database')
             self.conf[user] = {
-                'SEED': seed,
+                'SEED': seed.decode('utf-8'),
                 'PASSWORD': pwd,
                 f'DATABASES': str([name])
             }
@@ -61,11 +57,12 @@ class Window(QMainWindow):
         msg = "Enter your Password: "
         while True:
             pw_temp = get_text(self, "Validate", msg, pw=True)
-            if self.conf[self.conf['DEFAULT']['USER']]['PASSWORD'] == self.encrypt(pw_temp):
+            if self.decrypt(self.conf[self.conf['DEFAULT']['USER']]['PASSWORD']) == pw_temp:
                 break
             elif pw_temp == "<error_code>":
                 sys.exit()
             else:
+                print(f"1){pw_temp} | 2){self.decrypt(self.conf[self.conf['DEFAULT']['USER']]['PASSWORD'])}")
                 i += 1
                 msg = "Wrong Password: " + str(4-i)
                 if i > 3:
@@ -105,7 +102,7 @@ class Window(QMainWindow):
         ########################
         # Window Configuration #
         ########################
-        self.statusBar().showMessage(f'Database is unlocked, hello {self.user}!')
+        self.statusBar().showMessage(sys.version)
         self.setGeometry(100, 100, 1000, 550)
         self.setWindowTitle("Password Manager 0.3")
         self.setWindowIcon(QIcon("Logo.png"))
@@ -183,9 +180,12 @@ class Window(QMainWindow):
     def copy_pw(self):
         pc.copy(self.lePswOut.text())
 
-    def show_data_from_widget(self):
+    def show_data_from_widget(self):  # TODO: Unknown Error
+        print("1")
         item = self.decrypt(self.lwDatabase.currentItem().text())
+        print("2")
         codes = eval(self.open_db['HEAD']['CODES'])
+        print("3")
         pw_data = codes[item]
         self.leNameOut.setText(self.decrypt(pw_data[0]))
         self.lePswOut.setText(self.decrypt(pw_data[1]))
@@ -194,29 +194,23 @@ class Window(QMainWindow):
     # Functions #
     #############
 
-    def encrypt(self, text: str, seed: int = None):
+    def encrypt(self, text: str, seed=None):
         if self.crypt:
             return text
         if seed is None:
-            seed = int(self.conf[self.user]['SEED'])
-        txet = ''
-        if text is None:
-            text = ''
-        for i in range(0, len(text)):
-            txet += chr(ord(text[i]) + seed + i)
-        return txet
+            seed = self.conf[self.user]['SEED']
+            f = Fernet(bytes(seed, encoding='utf-8'))
+        else:
+            f = Fernet(seed)
+        return f.encrypt(bytes(text, encoding='utf-8')).decode('utf-8')
 
-    def decrypt(self, text: str, seed: int = None):
+    def decrypt(self, text: str, seed=None):
         if self.crypt:
             return text
         if seed is None:
-            seed = int(self.conf[self.user]['SEED'])
-        txet = ''
-        if text is None:
-            text = ''
-        for i in range(0, len(text)):
-            txet += chr(ord(text[i]) - (seed + i))
-        return txet
+            seed = self.conf[self.user]['SEED']
+        f = Fernet(bytes(seed, encoding='utf-8'))
+        return f.decrypt(bytes(text, encoding='utf-8')).decode('utf-8')
 
     def positioning(self):
         self.lUser.setText(f"<h1>{str(self.conf['DEFAULT']['USER'])}</h1>")
@@ -260,12 +254,12 @@ class Window(QMainWindow):
         self.lwDatabase.setGeometry(200, 20, 300, 500)
         self.lwDatabase.itemClicked.connect(self.show_data_from_widget)
 
-        self.lNameOut.setText("Nutzname")
+        self.lNameOut.setText("Username")
         self.lNameOut.setGeometry(550, 20, 100, 30)
         self.leNameOut.setGeometry(550, 50, 140, 30)
         self.leNameOut.setReadOnly(True)
 
-        self.lPswOut.setText("Passwort")
+        self.lPswOut.setText("Password")
         self.lPswOut.setGeometry(550, 90, 100, 30)
         self.lePswOut.setGeometry(550, 120, 100, 30)
         self.lePswOut.setReadOnly(True)
@@ -276,16 +270,16 @@ class Window(QMainWindow):
 
     def debug_info(self):
         print("--------------------------------------------------------------------")
-        print("Aktuelle Debug-Daten")
-        print("Autor: Yannick Reiß")
-        print("Programmiert mit: PyQt5, Python 3.8")
+        print("current meta data")
+        print("Author: Nick")
+        print("Python | Qt-Version: 3.8 | 5.13.")
         print(f"Version: {self.windowTitle()}")
         print("Datum: 09.03.2021")
-        print("Betriebssysteme: Win 10")
+        print("Tested on OS: Win 10")
         print("--------------------------------------------------------------------")
 
 
-# MAIN_PROGRAMM
+# MAIN_PROGRAM
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     win = Window()
