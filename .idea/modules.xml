@@ -2,7 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/DLRG.iml" filepath="$PROJECT_DIR$/.idea/DLRG.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/PWManager2.0.iml" filepath="$PROJECT_DIR$/.idea/PWManager2.0.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../../Programme/Passwortmerker/.idea/PyQtGUI.iml" filepath="$PROJECT_DIR$/../../../Programme/Passwortmerker/.idea/PyQtGUI.iml" />
     </modules>
   </component>
 </project>
