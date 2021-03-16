@@ -100,6 +100,7 @@ class Window(QMainWindow):
         self.lPswOut = QLabel(self)
         self.lePswOut = QLineEdit(self)
         self.pbCopyPsw = QPushButton(self)
+        self.pbCopyOpen = QPushButton(self)
 
         self.positioning()
 
@@ -145,6 +146,7 @@ class Window(QMainWindow):
             self.conf.write(e)
 
     def open_base(self):
+        self.lwDatabase.clear()
         db = config.ConfigParser()
         db_name = self.cbDatabases.currentText()
         db.read('Databases/'+db_name+".conf")
@@ -183,28 +185,43 @@ class Window(QMainWindow):
             self.open_db.write(e)
         self.open_base()
 
+    def is_url(self):
+        self.pbCopyOpen.setVisible(
+            re.match(r"(w*\.|)[a-zA-Z0-9]+\.(com|de|net|gov)(/[a-zA-Z0-9]+|)", self.lwDatabase.currentItem().text())
+            is not None)
+
     def copy_pw(self):
         pc.copy(self.lePswOut.text())
+        self.lePswOut.setText('')
+
+    def copy_open(self):
+        self.copy_pw()
+        os.system(f"start \"\" \"https://{self.leNameOut.text()}@{self.lwDatabase.currentItem().text()}\"")
+        self.leNameOut.setText('')
 
     def password_strength(self):
         strength = 0
         password = self.lePwInput.text()
-        if len(password) > 10:
+        if len(password) == 0:
+            self.progressbarStrength.setValue(0)
+            self.progressbarStrength.setFormat('')
+            self.progressbarStrength.setStyleSheet("QProgressBar::chunk {background-color: red;}")
+        elif len(password) > 10:
             strength += 40
         elif len(password) >= 5:
             strength += 20
             strength += (2*len(password))
         else:
             strength += (2*len(password))
-        if re.search(r"[a-z]", password):
+        if re.search(r"[a-z]", password) is not None:
             strength += 10
-        if re.search(r"[A-Z]", password):
+        if re.search(r"[A-Z]", password) is not None:
             strength += 10
-        if re.search(r"[0-9]", password):
+        if re.search(r"[0-9]", password) is not None:
             strength += 15
-        if re.search(r"[^A-Za-z0-9]", password):
+        if re.search(r"[^A-Za-z0-9]", password) is not None:
             strength += 15
-        if re.search(r"[a-z]", password) and re.search(r"[A-Z]", password):
+        if re.search(r"[a-z]", password) and re.search(r"[A-Z]", password) is not None:
             strength += 10
         self.progressbarStrength.setValue(strength)
         if strength > 66:
@@ -302,6 +319,7 @@ class Window(QMainWindow):
         self.lNameOut.setText("Username")
         self.lNameOut.setGeometry(550, 20, 100, 30)
         self.leNameOut.setGeometry(550, 50, 140, 30)
+        self.leNameOut.textChanged.connect(self.is_url)
         self.leNameOut.setReadOnly(True)
 
         self.lPswOut.setText("Password")
@@ -312,6 +330,11 @@ class Window(QMainWindow):
         self.pbCopyPsw.setGeometry(655, 120, 35, 30)
         self.pbCopyPsw.setText("Copy")
         self.pbCopyPsw.clicked.connect(self.copy_pw)
+
+        self.pbCopyOpen.setGeometry(550, 160, 140, 30)
+        self.pbCopyOpen.setText("Copy and open Link")
+        self.pbCopyOpen.clicked.connect(self.copy_open)
+        self.pbCopyOpen.setVisible(False)
 
     def debug_info(self):
         print("--------------------------------------------------------------------")
