@@ -1,3 +1,4 @@
+import re
 import os
 import sys
 from Dialogs import *
@@ -64,7 +65,6 @@ class Window(QMainWindow):
             elif pw_temp == "<error_code>":
                 sys.exit()
             else:
-                print(f"1){pw_temp} | 2){self.decrypt(self.conf[self.conf['DEFAULT']['USER']]['PASSWORD'])}")
                 i += 1
                 msg = "Wrong Password: " + str(4-i)
                 if i > 3:
@@ -76,6 +76,7 @@ class Window(QMainWindow):
         ######################
 
         # New DB
+        self.background = QLabel(self)
         self.cbDatabases = QComboBox(self)
         self.lUser = QLabel(self)
         self.pbAddBase = QPushButton(self)
@@ -88,6 +89,7 @@ class Window(QMainWindow):
         self.leUsInput = QLineEdit(self)
         self.lPwInput = QLabel(self)
         self.lePwInput = QLineEdit(self)
+        self.progressbarStrength = QProgressBar(self)
         self.pbAddPw = QPushButton(self)
 
         # Show Data - Show Database
@@ -106,8 +108,10 @@ class Window(QMainWindow):
         ########################
         self.statusBar().showMessage(sys.version)
         self.setGeometry(100, 100, 1000, 550)
-        self.setWindowTitle("Password Manager 0.3")
+        self.setWindowTitle("Password Manager 1.0")
         self.setWindowIcon(QIcon("Logo.png"))
+        self.background.setGeometry(0, 0, 1000, 550)
+        self.background.setPixmap(QPixmap("Background.jpg"))
         self.show()
 
     ####################
@@ -182,17 +186,46 @@ class Window(QMainWindow):
     def copy_pw(self):
         pc.copy(self.lePswOut.text())
 
-    def show_data_from_widget(self):  # TODO: The program keeps crashing in 193. Something is wrong encrypted
-        item = self.encrypt(self.lwDatabase.currentItem().text())
+    def password_strength(self):
+        strength = 0
+        password = self.lePwInput.text()
+        if len(password) > 10:
+            strength += 40
+        elif len(password) >= 5:
+            strength += 20
+            strength += (2*len(password))
+        else:
+            strength += (2*len(password))
+        if re.search(r"[a-z]", password):
+            strength += 10
+        if re.search(r"[A-Z]", password):
+            strength += 10
+        if re.search(r"[0-9]", password):
+            strength += 15
+        if re.search(r"[^A-Za-z0-9]", password):
+            strength += 15
+        if re.search(r"[a-z]", password) and re.search(r"[A-Z]", password):
+            strength += 10
+        self.progressbarStrength.setValue(strength)
+        if strength > 66:
+            self.progressbarStrength.setFormat("Strong")
+            self.progressbarStrength.setStyleSheet("QProgressBar::chunk {background-color: green;}")
+        elif strength > 33:
+            self.progressbarStrength.setFormat("Medium")
+            self.progressbarStrength.setStyleSheet("QProgressBar::chunk {background-color: yellow;}")
+        else:
+            self.progressbarStrength.setFormat("Weak")
+            self.progressbarStrength.setStyleSheet("QProgressBar::chunk {background-color: red;}")
+
+    def show_data_from_widget(self):
+        item = self.lwDatabase.currentItem().text()
         codes = eval(self.open_db['HEAD']['CODES'])
-        print("1")
-        print(codes.keys())
-        print(item)
-        print(item in codes.keys())
-        print("2")
-        pw_data = codes[item]
-        print("3")
-        self.leNameOut.setText(self.decrypt(pw_data[0]))
+        clear = {}
+        for code in codes:
+            clear[self.decrypt(code)] = codes[code]
+        pw_data = clear[item]
+        temp = self.decrypt(pw_data[0])
+        self.leNameOut.setText(temp)
         self.lePswOut.setText(self.decrypt(pw_data[1]))
 
     #############
@@ -238,6 +271,7 @@ class Window(QMainWindow):
         self.pbOpenBase.clicked.connect(self.open_base)
 
         # Add Pw
+        ########
         self.lNmInput.setGeometry(20, 220, 100, 30)
         self.lNmInput.setText("New entry name")
         self.leNmInput.setGeometry(20, 250, 100, 30)
@@ -249,14 +283,19 @@ class Window(QMainWindow):
         self.lPwInput.setGeometry(20, 360, 100, 30)
         self.lPwInput.setText("New entry password")
         self.lePwInput.setGeometry(20, 390, 100, 30)
+        self.lePwInput.textChanged.connect(self.password_strength)
 
-        self.pbAddPw.setGeometry(20, 430, 100, 30)
-        self.pbAddPw.setGeometry(20, 430, 100, 30)
+        self.progressbarStrength.setGeometry(20, 425, 100, 30)
+        self.progressbarStrength.setFormat("")
+        self.progressbarStrength.setValue(0)
+
+        self.pbAddPw.setGeometry(20, 460, 100, 30)
         self.pbAddPw.clicked.connect(self.add_pw)
         self.pbAddPw.setText("Add new entry")
         self.pbAddPw.setVisible(False)
 
         # Output
+        ########
         self.lwDatabase.setGeometry(200, 20, 300, 500)
         self.lwDatabase.itemClicked.connect(self.show_data_from_widget)
 
@@ -278,9 +317,9 @@ class Window(QMainWindow):
         print("--------------------------------------------------------------------")
         print("current meta data")
         print("Author: Nick")
-        print("Python | Qt-Version: 3.8 | 5.13.")
+        print("Python | Qt-Version: 3.8/3.9 | 5.13.")
         print(f"Version: {self.windowTitle()}")
-        print("Datum: 09.03.2021")
+        print("Datum: 16.03.2021")
         print("Tested on OS: Win 10")
         print("--------------------------------------------------------------------")
 
