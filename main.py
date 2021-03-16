@@ -1,3 +1,4 @@
+import os
 import sys
 from Dialogs import *
 import pyperclip as pc
@@ -27,6 +28,7 @@ class Window(QMainWindow):
             self.conf.read('Databases.conf', encoding='utf-8')
             self.user = self.conf['DEFAULT']['USER']
         except FileNotFoundError:
+            os.system("mkdir Databases")
             user = get_text(self, 'First start', 'Hello, you are starting this program\nfor the first time, '
                             'please enter your name.')
             self.user = user
@@ -180,13 +182,16 @@ class Window(QMainWindow):
     def copy_pw(self):
         pc.copy(self.lePswOut.text())
 
-    def show_data_from_widget(self):  # TODO: Unknown Error
-        print("1")
-        item = self.decrypt(self.lwDatabase.currentItem().text())
-        print("2")
+    def show_data_from_widget(self):  # TODO: The program keeps crashing in 193. Something is wrong encrypted
+        item = self.encrypt(self.lwDatabase.currentItem().text())
         codes = eval(self.open_db['HEAD']['CODES'])
-        print("3")
+        print("1")
+        print(codes.keys())
+        print(item)
+        print(item in codes.keys())
+        print("2")
         pw_data = codes[item]
+        print("3")
         self.leNameOut.setText(self.decrypt(pw_data[0]))
         self.lePswOut.setText(self.decrypt(pw_data[1]))
 
@@ -210,7 +215,8 @@ class Window(QMainWindow):
         if seed is None:
             seed = self.conf[self.user]['SEED']
         f = Fernet(bytes(seed, encoding='utf-8'))
-        return f.decrypt(bytes(text, encoding='utf-8')).decode('utf-8')
+        temp = f.decrypt(bytes(text, encoding='utf-8')).decode('utf-8')
+        return temp
 
     def positioning(self):
         self.lUser.setText(f"<h1>{str(self.conf['DEFAULT']['USER'])}</h1>")
