@@ -1,1 +1,5 @@
 *.conf
+/venv/pyvenv.cfg
+/Discord.py
+/venv/
+/venv/Include/
