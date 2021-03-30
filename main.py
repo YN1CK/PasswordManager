@@ -47,7 +47,7 @@ class Window(QMainWindow):
             db['HEAD'] = {'NAME': name, 'Secured': safe}
             db['HEAD']['CODES'] = str("{}")
             if safe:
-                db['HEAD']['PASSWORD'] = get_text(self, 'New Password', 'Enter a new Password', pw=True)
+                db['HEAD']['PASSWORD'] = self.encrypt(get_text(self, 'New Password', 'Enter a new Password', pw=True))
             else:
                 db['HEAD']['PASSWORD'] = '--'
             with open('Databases.conf', 'w', encoding='utf-8') as e:
@@ -102,6 +102,17 @@ class Window(QMainWindow):
         self.pbCopyPsw = QPushButton(self)
         self.pbCopyOpen = QPushButton(self)
 
+        # Menu Bar
+        menuBar = self.menuBar()
+
+        mSecurity = QMenu("&Security", self)
+        menuBar.addMenu(mSecurity)
+        mSecurity.addAction('Close DB', self.close_base)
+
+        mBase = QMenu("Database", self)
+        menuBar.addMenu(mBase)
+        mBase.addAction('Delete current Entry', self.delete_current_pw)
+
         self.positioning()
 
         ########################
@@ -112,6 +123,7 @@ class Window(QMainWindow):
         self.setWindowTitle("Password Manager 1.0")
         self.setWindowIcon(QIcon("Logo.png"))
         self.background.setGeometry(0, 0, 1000, 550)
+        self.setFixedSize(1000, 550)
         self.background.setPixmap(QPixmap("Background.jpg"))
         self.show()
 
@@ -126,6 +138,10 @@ class Window(QMainWindow):
             self.debug_info()
         elif q_key_event.key() == Qt.Key_C:
             self.copy_pw()
+        elif q_key_event.key() == Qt.Key_F5 and self.pbCopyOpen.isVisible():
+            self.copy_open()
+        elif q_key_event.key() == Qt.Key_F6:
+            self.delete_entry()
 
     def new_base(self):
         db = config.ConfigParser()
@@ -152,11 +168,13 @@ class Window(QMainWindow):
         db.read('Databases/'+db_name+".conf")
         if db['HEAD']['PASSWORD'] != "--":
             i = 0
-            while not self.encrypt(get_text(self, "Password", "Please Enter the Database Password")) \
-                    == db['HEAD']['PASSWORD']:
+            inp_pw = get_text(self, "Password", "Please Enter the Database Password")
+            while not inp_pw == self.decrypt(db['HEAD']['PASSWORD']):
                 i += 1
+                print(f"{inp_pw}%{self.decrypt(db['HEAD']['PASSWORD'])}°")
                 if i > 3:
                     sys.exit()
+                inp_pw = get_text(self, "Password", "Please Enter the Database Password")
         for row in eval(db['HEAD']['CODES']):
             self.lwDatabase.addItem(self.decrypt(row))
         self.db_name = db_name
@@ -187,17 +205,15 @@ class Window(QMainWindow):
 
     def is_url(self):
         self.pbCopyOpen.setVisible(
-            re.match(r"(w*\.|)[a-zA-Z0-9]+\.(com|de|net|gov)(/[a-zA-Z0-9]+|)", self.lwDatabase.currentItem().text())
+            re.match(r"([a-zA-Z]*\.|)[a-zA-Z0-9]+\.(com|de|net|gov|[a-zA-Z]+)(/[a-zA-Z0-9]+|)", self.lwDatabase.currentItem().text())
             is not None)
 
     def copy_pw(self):
         pc.copy(self.lePswOut.text())
-        self.lePswOut.setText('')
 
     def copy_open(self):
         self.copy_pw()
         os.system(f"start \"\" \"https://{self.leNameOut.text()}@{self.lwDatabase.currentItem().text()}\"")
-        self.leNameOut.setText('')
 
     def password_strength(self):
         strength = 0
@@ -234,6 +250,14 @@ class Window(QMainWindow):
             self.progressbarStrength.setFormat("Weak")
             self.progressbarStrength.setStyleSheet("QProgressBar::chunk {background-color: red;}")
 
+    def delete_entry(self):  # TODO: Finish Function to delete Entry
+        item = self.lwDatabase.currentItem().text()
+        codes = eval(self.open_db['HEAD']['CODES'])
+        clear = {}
+        for code in codes:
+            clear[self.decrypt(code)] = codes[code]
+        item += item
+
     def show_data_from_widget(self):
         item = self.lwDatabase.currentItem().text()
         codes = eval(self.open_db['HEAD']['CODES'])
@@ -244,6 +268,17 @@ class Window(QMainWindow):
         temp = self.decrypt(pw_data[0])
         self.leNameOut.setText(temp)
         self.lePswOut.setText(self.decrypt(pw_data[1]))
+        self.copy_pw()
+    
+    def delete_current_pw(self):
+        if self.open_db == None:
+            get_bool(self, 'Error.', 'No open Database')
+            return
+        msg = 'Are you sure?'
+        for i in range(0, 2):
+            if not get_bool(self, 'Request', msg):
+                return
+            msg = 'Really?'
 
     #############
     # Functions #
@@ -269,8 +304,8 @@ class Window(QMainWindow):
         return temp
 
     def positioning(self):
-        self.lUser.setText(f"<h1>{str(self.conf['DEFAULT']['USER'])}</h1>")
-        self.lUser.setGeometry(20, 10, 100, 30)
+        self.lUser.setText(f"<h2>{str(self.conf['DEFAULT']['USER'])}</h2>")
+        self.lUser.setGeometry(20, 25, 100, 30)
         self.lUser.setToolTip("The current user.")
 
         self.cbDatabases.addItems(eval(self.conf[self.conf['DEFAULT']['USER']]['DATABASES']))
@@ -313,7 +348,7 @@ class Window(QMainWindow):
 
         # Output
         ########
-        self.lwDatabase.setGeometry(200, 20, 300, 500)
+        self.lwDatabase.setGeometry(200, 40, 300, 480)
         self.lwDatabase.itemClicked.connect(self.show_data_from_widget)
 
         self.lNameOut.setText("Username")
