@@ -13,7 +13,6 @@ from cryptography.fernet import Fernet
 # Window-Class #
 ################
 
-
 class Window(QMainWindow):
 
     def __init__(self):
@@ -69,7 +68,7 @@ class Window(QMainWindow):
                 msg = "Wrong Password: " + str(4-i)
                 if i > 3:
                     sys.exit()
-        self.open_db: config.ConfigParser() = config.ConfigParser()
+        self.open_db: config.ConfigParser() = None  # config.ConfigParser()
 
         ######################
         # Item Configuration #
@@ -79,7 +78,6 @@ class Window(QMainWindow):
         self.background = QLabel(self)
         self.cbDatabases = QComboBox(self)
         self.lUser = QLabel(self)
-        self.pbAddBase = QPushButton(self)
         self.pbOpenBase = QPushButton(self)
 
         # Add Password
@@ -103,15 +101,16 @@ class Window(QMainWindow):
         self.pbCopyOpen = QPushButton(self)
 
         # Menu Bar
-        menuBar = self.menuBar()
+        menu_bar = self.menuBar()
 
-        mSecurity = QMenu("&Security", self)
-        menuBar.addMenu(mSecurity)
-        mSecurity.addAction('Close DB', self.close_base)
+        m_security = QMenu("&Security", self)
+        menu_bar.addMenu(m_security)
+        m_security.addAction('Close DB', self.close_base)
+        m_security.addAction('Add DB', self.new_base)
 
-        mBase = QMenu("Database", self)
-        menuBar.addMenu(mBase)
-        mBase.addAction('Delete current Entry', self.delete_current_pw)
+        m_base = QMenu("Database", self)
+        menu_bar.addMenu(m_base)
+        m_base.addAction('Delete current Entry', self.delete_entry)
 
         self.positioning()
 
@@ -190,12 +189,12 @@ class Window(QMainWindow):
     def add_pw(self):
         name = self.leNmInput.text()
         user = self.leUsInput.text()
-        pswd = self.lePwInput.text()
+        password = self.lePwInput.text()
         self.leNmInput.setText('')
         self.leUsInput.setText('')
         self.lePwInput.setText('')
         dic = eval(self.open_db['HEAD']['CODES'])
-        dic[self.encrypt(name)] = [self.encrypt(user), self.encrypt(pswd)]
+        dic[self.encrypt(name)] = [self.encrypt(user), self.encrypt(password)]
         self.open_db['HEAD']['CODES'] = str(dic)
 
         db_name = self.cbDatabases.currentText()
@@ -205,7 +204,8 @@ class Window(QMainWindow):
 
     def is_url(self):
         self.pbCopyOpen.setVisible(
-            re.match(r"([a-zA-Z]*\.|)[a-zA-Z0-9]+\.(com|de|net|gov|[a-zA-Z]+)(/[a-zA-Z0-9]+|)", self.lwDatabase.currentItem().text())
+            re.match(r"([a-zA-Z]*\.|)[a-zA-Z0-9]+\.(com|de|net|gov|[a-zA-Z]+)(/[a-zA-Z0-9]+|)",
+                     self.lwDatabase.currentItem().text())
             is not None)
 
     def copy_pw(self):
@@ -249,14 +249,38 @@ class Window(QMainWindow):
         else:
             self.progressbarStrength.setFormat("Weak")
             self.progressbarStrength.setStyleSheet("QProgressBar::chunk {background-color: red;}")
+        if strength > 65:
+            self.pbAddPw.setEnabled(True)
+        else:
+            self.pbAddPw.setEnabled(False)
 
-    def delete_entry(self):  # TODO: Finish Function to delete Entry
+    def delete_entry(self):
+        if self.open_db is None:
+            get_bool(self, 'Error.', 'No open Database')
+            return
+        msg = 'Are you sure?'
+        for i in range(0, 2):
+            if not get_bool(self, 'Request', msg):
+                return
+            msg = 'Really?'
         item = self.lwDatabase.currentItem().text()
         codes = eval(self.open_db['HEAD']['CODES'])
         clear = {}
         for code in codes:
             clear[self.decrypt(code)] = codes[code]
-        item += item
+        new_codes: dict = {}
+        for code in clear:
+            if code == item:
+                continue
+            else:
+                new_codes[self.encrypt(code)] = clear[code]
+
+        self.open_db['HEAD']['CODES'] = str(new_codes)
+        db_name = self.cbDatabases.currentText()
+        with open(f'Databases/{db_name}.conf', 'w', encoding='utf-8') as e:
+            self.open_db.write(e)
+        self.close_base()
+        self.open_base()
 
     def show_data_from_widget(self):
         item = self.lwDatabase.currentItem().text()
@@ -269,16 +293,6 @@ class Window(QMainWindow):
         self.leNameOut.setText(temp)
         self.lePswOut.setText(self.decrypt(pw_data[1]))
         self.copy_pw()
-    
-    def delete_current_pw(self):
-        if self.open_db == None:
-            get_bool(self, 'Error.', 'No open Database')
-            return
-        msg = 'Are you sure?'
-        for i in range(0, 2):
-            if not get_bool(self, 'Request', msg):
-                return
-            msg = 'Really?'
 
     #############
     # Functions #
@@ -313,11 +327,6 @@ class Window(QMainWindow):
         self.cbDatabases.setToolTip("ATTENTION: Closes the current Database.")
         self.cbDatabases.currentTextChanged.connect(self.close_base)
 
-        self.pbAddBase.setGeometry(19, 50, 102, 30)
-        self.pbAddBase.setText("Add Database")
-        self.pbAddBase.setToolTip("WARNING: You can't transfer Passwords between Databases!")
-        self.pbAddBase.clicked.connect(self.new_base)
-
         self.pbOpenBase.setGeometry(19, 130, 102, 30)
         self.pbOpenBase.setText("Open Database")
         self.pbOpenBase.clicked.connect(self.open_base)
@@ -345,6 +354,7 @@ class Window(QMainWindow):
         self.pbAddPw.clicked.connect(self.add_pw)
         self.pbAddPw.setText("Add new entry")
         self.pbAddPw.setVisible(False)
+        self.pbAddPw.setEnabled(False)
 
         # Output
         ########
