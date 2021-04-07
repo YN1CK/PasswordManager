@@ -1,17 +1,24 @@
 import re
 import os
 import sys
+import platform
+from os.path import basename
+from zipfile import ZipFile
+
 from Dialogs import *
 import pyperclip as pc
-# from PyQt5.QtGui import *
+from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 # from PyQt5.QtWidgets import *
 import configparser as config
+from Utils import get_pw_count, manual, generate_password
 from cryptography.fernet import Fernet
 
 ################
 # Window-Class #
 ################
+# TODO: Add E-Mails and Notes
+
 
 class Window(QMainWindow):
 
@@ -68,7 +75,7 @@ class Window(QMainWindow):
                 msg = "Wrong Password: " + str(4-i)
                 if i > 3:
                     sys.exit()
-        self.open_db: config.ConfigParser() = None  # config.ConfigParser()
+        self.open_db: config.ConfigParser() = None
 
         ######################
         # Item Configuration #
@@ -103,14 +110,24 @@ class Window(QMainWindow):
         # Menu Bar
         menu_bar = self.menuBar()
 
+        # TODO: Forced button needs to stop if name already in use!!!
         m_security = QMenu("&Security", self)
         menu_bar.addMenu(m_security)
-        m_security.addAction('Close DB', self.close_base)
-        m_security.addAction('Add DB', self.new_base)
+        m_security.addAction('Forced Push', self.add_pw)
+        m_security.addAction('Generate a Password', self.generate_pw)
+        m_security.addAction('Export current Database')  # TODO: Implement Export single Database
+        m_security.addAction('Export all Databases', self.export_all)
 
-        m_base = QMenu("Database", self)
+        m_base = QMenu("&Database", self)
         menu_bar.addMenu(m_base)
         m_base.addAction('Delete current Entry', self.delete_entry)
+        m_base.addAction('Close DB', self.close_base)
+        m_base.addAction('Add DB', self.new_base)
+
+        m_help = QMenu("&Help", self)
+        menu_bar.addMenu(m_help)
+        m_help.addAction('Manual', manual)  # TODO: Write Manual
+        m_help.addAction('Info', self.debug_info)
 
         self.positioning()
 
@@ -119,7 +136,7 @@ class Window(QMainWindow):
         ########################
         self.statusBar().showMessage(sys.version)
         self.setGeometry(100, 100, 1000, 550)
-        self.setWindowTitle("Password Manager 1.0")
+        self.setWindowTitle("Password Manager 2.12")
         self.setWindowIcon(QIcon("Logo.png"))
         self.background.setGeometry(0, 0, 1000, 550)
         self.setFixedSize(1000, 550)
@@ -187,6 +204,12 @@ class Window(QMainWindow):
         self.lwDatabase.clear()
 
     def add_pw(self):
+        self.value_changed()
+        if not self.pbAddPw.isEnabled():
+            if not self.name_changed():
+                return
+            if not get_bool(self, 'WARNING!', 'Please check your Inputs and make sure they are ok!'):
+                return
         name = self.leNmInput.text()
         user = self.leUsInput.text()
         password = self.lePwInput.text()
@@ -215,6 +238,9 @@ class Window(QMainWindow):
         self.copy_pw()
         os.system(f"start \"\" \"https://{self.leNameOut.text()}@{self.lwDatabase.currentItem().text()}\"")
 
+    def value_changed(self):
+        self.pbAddPw.setEnabled(self.password_strength() and self.name_changed())
+
     def password_strength(self):
         strength = 0
         password = self.lePwInput.text()
@@ -239,6 +265,15 @@ class Window(QMainWindow):
             strength += 15
         if re.search(r"[a-z]", password) and re.search(r"[A-Z]", password) is not None:
             strength += 10
+        # Digit-Mode:
+        if re.match(r"^[0-9]+$", password):
+            strength = 66
+        # password already used to much
+        if self.open_db is not None:
+            strength -= (get_pw_count(self, self.encrypt(password), eval(self.open_db['HEAD']['CODES']))*30)
+        if strength < 0:
+            strength = 0
+        self.progressbarStrength.setToolTip(str(strength))
         self.progressbarStrength.setValue(strength)
         if strength > 66:
             self.progressbarStrength.setFormat("Strong")
@@ -250,9 +285,21 @@ class Window(QMainWindow):
             self.progressbarStrength.setFormat("Weak")
             self.progressbarStrength.setStyleSheet("QProgressBar::chunk {background-color: red;}")
         if strength > 65:
-            self.pbAddPw.setEnabled(True)
+            return True
         else:
-            self.pbAddPw.setEnabled(False)
+            return False
+
+    def name_changed(self):
+        if self.open_db is None:
+            return False
+        name = self.leNmInput.text().lower()
+        names = eval(self.open_db['HEAD']['CODES'])
+        for key in names:
+            if self.decrypt(key).lower() == name:
+                self.pbAddPw.setEnabled(False)
+                return False
+        self.pbAddPw.setEnabled(True)
+        return True
 
     def delete_entry(self):
         if self.open_db is None:
@@ -294,6 +341,21 @@ class Window(QMainWindow):
         self.lePswOut.setText(self.decrypt(pw_data[1]))
         self.copy_pw()
 
+    def generate_pw(self):
+        pw = generate_password(get_int(self, 'Length of the Password', 'How long is the new Password?', def_num=12),
+                               pin=get_bool(self, 'Pin?', 'Do you want a pin (only digits)?'))
+        self.lePwInput.setText(pw)
+
+    def export_all(self):
+        with ZipFile(f'Export_{self.user}.zip', 'w') as zipObj:
+            # Iterate over all the files in directory
+            for folderName, sub_folders, filenames in os.walk('Databases/'):
+                for filename in filenames:
+                    # create complete filepath of file in directory
+                    file_path = os.path.join(folderName, filename)
+                    # Add file to zip
+                    zipObj.write(file_path, basename(file_path))
+
     #############
     # Functions #
     #############
@@ -320,15 +382,16 @@ class Window(QMainWindow):
     def positioning(self):
         self.lUser.setText(f"<h2>{str(self.conf['DEFAULT']['USER'])}</h2>")
         self.lUser.setGeometry(20, 25, 100, 30)
-        self.lUser.setToolTip("The current user.")
+        self.lUser.setToolTip("Hello, this is you.")
 
         self.cbDatabases.addItems(eval(self.conf[self.conf['DEFAULT']['USER']]['DATABASES']))
         self.cbDatabases.setGeometry(20, 90, 100, 30)
-        self.cbDatabases.setToolTip("ATTENTION: Closes the current Database.")
+        self.cbDatabases.setToolTip("Select your database.\nATTENTION: Closes the current database on change.")
         self.cbDatabases.currentTextChanged.connect(self.close_base)
 
         self.pbOpenBase.setGeometry(19, 130, 102, 30)
         self.pbOpenBase.setText("Open Database")
+        self.pbOpenBase.setToolTip("Opens the selected database.\nMaybe requires a password.")
         self.pbOpenBase.clicked.connect(self.open_base)
 
         # Add Pw
@@ -336,6 +399,7 @@ class Window(QMainWindow):
         self.lNmInput.setGeometry(20, 220, 100, 30)
         self.lNmInput.setText("New entry name")
         self.leNmInput.setGeometry(20, 250, 100, 30)
+        self.leNmInput.textChanged.connect(self.value_changed)
 
         self.lUsInput.setGeometry(20, 290, 100, 30)
         self.lUsInput.setText("New entry Username")
@@ -344,7 +408,7 @@ class Window(QMainWindow):
         self.lPwInput.setGeometry(20, 360, 100, 30)
         self.lPwInput.setText("New entry password")
         self.lePwInput.setGeometry(20, 390, 100, 30)
-        self.lePwInput.textChanged.connect(self.password_strength)
+        self.lePwInput.textChanged.connect(self.value_changed)
 
         self.progressbarStrength.setGeometry(20, 425, 100, 30)
         self.progressbarStrength.setFormat("")
@@ -382,21 +446,17 @@ class Window(QMainWindow):
         self.pbCopyOpen.setVisible(False)
 
     def debug_info(self):
-        print("--------------------------------------------------------------------")
-        print("current meta data")
-        print("Author: Nick")
-        print("Python | Qt-Version: 3.8/3.9 | 5.13.")
-        print(f"Version: {self.windowTitle()}")
-        print("Datum: 16.03.2021")
-        print("Tested on OS: Win 10")
-        print("--------------------------------------------------------------------")
+        get_bool(self, 'Info', f"""Author: Nick
+running Python | Qt-Version: {platform.python_version()} | 5.13.
+Version: {self.windowTitle()}
+Datum: 06.04.2021
+Tested on OS: Win 10""")
 
 
 # MAIN_PROGRAM
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     win = Window()
-    print("2 - Window initialized")
     print("       __    __  ")
     print("      |  |__|  | ")
     print("      |___  ___| ")

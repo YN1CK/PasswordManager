@@ -1,5 +1,7 @@
 *.conf
+*.zip
 /venv/pyvenv.cfg
 /Discord.py
 /venv/
 /venv/Imports
+/.vscode/

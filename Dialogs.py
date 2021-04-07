@@ -1,5 +1,4 @@
 from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
 
 
 def get_item(parent: QMainWindow, items: tuple = ('1', '2', '3'),
@@ -25,8 +24,8 @@ def get_text(parent: QMainWindow, title: str = 'Text Input', message: str = 'Ent
         return "<error_code>"
 
 
-def get_int(parent: QMainWindow, title: str = "integer input dualog", message: str = "enter a number"):
-    num, ok = QInputDialog.getInt(parent, title, message)
+def get_int(parent: QMainWindow, title: str = "Int Input-Dialog", message: str = "Enter a Number", def_num: int = 4):
+    num, ok = QInputDialog.getInt(parent, title, message, value=def_num)
 
     if ok:
         return num
