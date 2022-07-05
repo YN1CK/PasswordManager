@@ -5,3 +5,9 @@
 /venv/
 /venv/Imports
 /.vscode/
+Cargo.toml
+src/
+target/
+Cargo.lock
+.idea/
+__pycache__/

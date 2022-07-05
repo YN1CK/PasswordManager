@@ -4,7 +4,6 @@ import sys
 import platform
 from os.path import basename
 from zipfile import ZipFile
-
 from Dialogs import *
 import pyperclip as pc
 from PyQt5.QtGui import *
@@ -13,6 +12,7 @@ from PyQt5.QtWidgets import *
 import configparser as config
 from Utils import get_pw_count, manual, generate_password
 from cryptography.fernet import Fernet
+from crypt import encrypt, decrypt
 
 class Window(QMainWindow):
 
@@ -34,7 +34,7 @@ class Window(QMainWindow):
                             'please enter your name.')
             self.user = user
             seed = Fernet.generate_key()
-            pwd = self.encrypt(get_text(self, 'Password', 'Please enter your password', pw=True), seed)
+            pwd = encrypt(self, get_text(self, 'Password', 'Please enter your password', pw=True), seed)
             self.conf['DEFAULT'] = {'USER': user}
             name = get_text(self, 'Database', 'Please enter a Name for your Database')
             self.conf[user] = {
@@ -47,7 +47,7 @@ class Window(QMainWindow):
             db['HEAD'] = {'NAME': name, 'Secured': safe}
             db['HEAD']['CODES'] = str("{}")
             if safe:
-                db['HEAD']['PASSWORD'] = self.encrypt(get_text(self, 'New Password', 'Enter a new Password', pw=True))
+                db['HEAD']['PASSWORD'] = encrypt(self, get_text(self, 'New Password', 'Enter a new Password', pw=True))
             else:
                 db['HEAD']['PASSWORD'] = '--'
             with open('Databases.conf', 'w', encoding='utf-8') as e:
@@ -60,7 +60,7 @@ class Window(QMainWindow):
         msg = "Enter your Password: "
         while True:
             pw_temp = get_text(self, "Validate", msg, pw=True)
-            if self.decrypt(self.conf[self.conf['DEFAULT']['USER']]['PASSWORD']) == pw_temp:
+            if decrypt(self, self.conf[self.conf['DEFAULT']['USER']]['PASSWORD']) == pw_temp:
                 break
             elif pw_temp == "<error_code>":
                 sys.exit()
@@ -159,7 +159,7 @@ class Window(QMainWindow):
         safe = get_bool(self, 'Secure?', 'Is this Database secured?')
         db['HEAD'] = {'NAME': name, 'Secured': safe}
         if safe:
-            db['HEAD']['PASSWORD'] = self.encrypt(get_text(self, 'New Password', 'Enter a new Password', pw=True))
+            db['HEAD']['PASSWORD'] = encrypt(self, get_text(self, 'New Password', 'Enter a new Password', pw=True))
         else:
             db['HEAD']['PASSWORD'] = '--'
         db['HEAD']['CODES'] = str("{}")
@@ -179,14 +179,14 @@ class Window(QMainWindow):
         if db['HEAD']['PASSWORD'] != "--":
             i = 0
             inp_pw = get_text(self, "Password", "Please Enter the Database Password")
-            while not inp_pw == self.decrypt(db['HEAD']['PASSWORD']):
+            while not inp_pw == decrypt(self, db['HEAD']['PASSWORD']):
                 i += 1
-                print(f"{inp_pw}%{self.decrypt(db['HEAD']['PASSWORD'])}°")
+                print(f"{inp_pw}%{decrypt(self, db['HEAD']['PASSWORD'])}°")
                 if i > 3:
                     sys.exit()
                 inp_pw = get_text(self, "Password", "Please Enter the Database Password")
         for row in eval(db['HEAD']['CODES']):
-            self.lwDatabase.addItem(self.decrypt(row))
+            self.lwDatabase.addItem(decrypt(self, row))
         self.db_name = db_name
         self.open_db = db
         self.pbAddPw.setVisible(True)
@@ -211,7 +211,7 @@ class Window(QMainWindow):
         self.leUsInput.setText('')
         self.lePwInput.setText('')
         dic = eval(self.open_db['HEAD']['CODES'])
-        dic[self.encrypt(name)] = [self.encrypt(user), self.encrypt(password)]
+        dic[encrypt(self, name)] = [encrypt(self, user), encrypt(self, password)]
         self.open_db['HEAD']['CODES'] = str(dic)
 
         db_name = self.cbDatabases.currentText()
@@ -264,7 +264,7 @@ class Window(QMainWindow):
             strength = 66
         # password already used to much
         if self.open_db is not None:
-            strength -= (get_pw_count(self, self.encrypt(password), eval(self.open_db['HEAD']['CODES']))*30)
+            strength -= (get_pw_count(self, encrypt(self, password), eval(self.open_db['HEAD']['CODES']))*30)
         if strength < 0:
             strength = 0
         self.progressbarStrength.setToolTip(str(strength))
@@ -289,7 +289,7 @@ class Window(QMainWindow):
         name = self.leNmInput.text().lower()
         names = eval(self.open_db['HEAD']['CODES'])
         for key in names:
-            if self.decrypt(key).lower() == name:
+            if decrypt(self, key).lower() == name:
                 self.pbAddPw.setEnabled(False)
                 return False
         self.pbAddPw.setEnabled(True)
@@ -308,13 +308,13 @@ class Window(QMainWindow):
         codes = eval(self.open_db['HEAD']['CODES'])
         clear = {}
         for code in codes:
-            clear[self.decrypt(code)] = codes[code]
+            clear[decrypt(self, code)] = codes[code]
         new_codes: dict = {}
         for code in clear:
             if code == item:
                 continue
             else:
-                new_codes[self.encrypt(code)] = clear[code]
+                new_codes[encrypt(self, code)] = clear[code]
 
         self.open_db['HEAD']['CODES'] = str(new_codes)
         db_name = self.cbDatabases.currentText()
@@ -328,11 +328,11 @@ class Window(QMainWindow):
         codes = eval(self.open_db['HEAD']['CODES'])
         clear = {}
         for code in codes:
-            clear[self.decrypt(code)] = codes[code]
+            clear[decrypt(self, code)] = codes[code]
         pw_data = clear[item]
-        temp = self.decrypt(pw_data[0])
+        temp = decrypt(self, pw_data[0])
         self.leNameOut.setText(temp)
-        self.lePswOut.setText(self.decrypt(pw_data[1]))
+        self.lePswOut.setText(decrypt(self, pw_data[1]))
         self.copy_pw()
 
     def generate_pw(self):
@@ -353,26 +353,6 @@ class Window(QMainWindow):
     #############
     # Functions #
     #############
-
-    def encrypt(self, text: str, seed=None):
-        if self.crypt:
-            return text
-        if seed is None:
-            seed = self.conf[self.user]['SEED']
-            f = Fernet(bytes(seed, encoding='utf-8'))
-        else:
-            f = Fernet(seed)
-        return f.encrypt(bytes(text, encoding='utf-8')).decode('utf-8')
-
-    def decrypt(self, text: str, seed=None):
-        if self.crypt:
-            return text
-        if seed is None:
-            seed = self.conf[self.user]['SEED']
-        f = Fernet(bytes(seed, encoding='utf-8'))
-        temp = f.decrypt(bytes(text, encoding='utf-8')).decode('utf-8')
-        return temp
-
     def positioning(self):
         self.lUser.setText(f"<h2>{str(self.conf['DEFAULT']['USER'])}</h2>")
         self.lUser.setGeometry(20, 25, 100, 30)
@@ -445,4 +425,3 @@ running Python | Qt-Version: {platform.python_version()} | 5.13.
 Version: {self.windowTitle()}
 Datum: 05.07.2022
 Tested on OS: Win 10, Manjaro, Debian 11""")
-

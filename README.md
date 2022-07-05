@@ -14,9 +14,6 @@ python3:
 
 ## Todo
 ### window.py aufteilen
-Die kryptoprahpischen Funktionen aus window.py sollen nach crypt.py ausgelagert werden:
-- encrypt
-- decrypt
 
 Die Datenbankfunktionen aus window.py sollen nach database.py ausgelagert werden:
 - new_base
